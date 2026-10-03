@@ -1,68 +1,73 @@
-# FunctionalDeliveryCalculator
+# FunctionalTicketCalculator
 
-A console program that calculates the final delivery price.
+A console program that calculates the final ticket price.
 
 ## How to run
 
 ```
-cd FunctionalDeliveryCalculator
 dotnet run
 ```
 
 The program asks five questions, one by one:
 
-1. Base delivery price (a number, for example `1000`)
-2. Number of items (a whole number, 1 or more)
-3. Express delivery (`true` or `false`)
-4. Delivery type (`Pickup`, `Courier` or `DoorToDoor`)
-5. Delivery zone (`City`, `OutsideCity` or `Remote`)
+1. Base price (a number, for example `5000`)
+2. Age (a whole number, 0 or more)
+3. Student (`true` or `false`)
+4. Ticket type (`Standard` or `Vip`)
+5. Day type (`Weekday` or `Weekend`)
 
-If the input is wrong, the program prints an error message and stops.
+If the input is wrong or empty, the program prints an error message and stops.
 
 ## Pricing rules
 
-The rules are applied in this order:
+1. Customer discount (the first rule that matches is used):
+   - age < 6 -> free (x 0.00)
+   - age 6-12 -> 50% discount (x 0.50)
+   - student -> 15% discount (x 0.85)
+   - age 60 or more -> 30% discount (x 0.70)
+   - others -> no discount (x 1.00)
+2. Ticket type: Vip x 1.25, Standard x 1.00
+3. Day type: Weekend x 1.10, Weekday x 1.00
+4. The price cannot be negative and is rounded to two decimal places.
 
-1. Base price
-2. Number of items: 1-3 items x 1.00, 4-7 items x 1.10, 8 or more x 1.20
-3. Delivery type: Pickup x 0.80, Courier x 1.00, DoorToDoor x 1.15
-4. Zone: City x 1.00, OutsideCity x 1.25, Remote x 1.50
-5. Express: true x 1.30, false x 1.00
-6. The result is rounded to two decimal places
+## Functions in the program
 
-The task does not give a value for the `Remote` zone, so I used x 1.50.
-It is written in one place, in the method `GetZoneFactor`.
+- `Main` - reads input, checks it with `TryParse`, prints the result.
+- `ApplyRule` - higher-order function. It receives a price and a
+  `Func<decimal, decimal>` rule and returns `rule(price)`.
+- `GetCustomerFactor` - returns the customer discount factor (if / else if).
+- `GetTicketFactor` - returns the ticket factor (switch).
+- `GetDayFactor` - expression-bodied function with `? :`.
+- `CalculateFinalPrice` - creates three `Func<decimal, decimal>` values
+  with lambdas (`customerRule`, `ticketRule`, `dayRule`) and applies them
+  one by one with `ApplyRule`. Every step returns a new value.
 
 ## Answers to the questions
 
-**Which parts of your program handle user input and output?**
+**1. Which parts of the program are imperative?**
 
-Only the `Main` method. It is the only place where `Console.ReadLine`,
-`Console.Write` and `Console.WriteLine` are used.
+The `Main` method. It runs step by step: ask a question, read the line,
+check it, and `return` early if it is wrong. Then it calls the calculation
+and prints the result.
 
-**Which functions perform only delivery price calculations?**
+**2. Which functions are pure?**
 
-`GetItemsFactor`, `GetTypeFactor`, `GetZoneFactor`, `ApplyRule` and
-`CalculateFinalPrice`. They take values as parameters and return a value.
-They do not use the console and do not change anything outside themselves.
+`ApplyRule`, `GetCustomerFactor`, `GetTicketFactor`, `GetDayFactor` and
+`CalculateFinalPrice`. They only use their parameters, always return the
+same result for the same input, do not use `Console` and do not change
+any global variables.
 
-**How is `Func<...>` used to apply delivery pricing rules?**
+**3. Where do side effects remain?**
 
-Inside `CalculateFinalPrice` there are two variables of type
-`Func<decimal, decimal>`: `itemsRule` and `expressRule`. Each of them is a
-small function that takes a price and returns a new price. They are given
-to the method `ApplyRule`, which calls the rule and returns the result.
-The other two rules are written as lambdas directly in the `ApplyRule`
-call. Because of this, every rule is applied the same way and the order of
-the rules is easy to see.
+Only in `Main`: `Console.ReadLine` (reading input) and `Console.Write` /
+`Console.WriteLine` (printing). Everything else has no side effects.
 
-**Why is `TryParse` useful when processing delivery data entered by the user?**
+**4. Why is TryParse preferred to Parse for user input?**
 
-The user types text, and the text can be wrong: letters instead of a
-number, an empty line, or a word that is not in the enum. `decimal.Parse`
-would throw an exception and the program would crash. `TryParse` returns
-`false` instead, so the program can print an error message and stop
-normally, without an exception.
+The user can type anything: letters, an empty line, or a wrong word.
+`Parse` throws an exception and the program crashes. `TryParse` just
+returns `false`, so the program can show a clear error message and stop
+normally.
 
 ## Test cases
 

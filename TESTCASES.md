@@ -1,33 +1,31 @@
 # Test cases
 
-The program asks for the values in this order:
-price, items, express, delivery type, delivery zone.
+Input order: price, age, student, ticket type, day type.
 
 ## Correct input
 
-| # | Price | Items | Express | Type | Zone | Calculation | Result |
-|---|---|---|---|---|---|---|---|
-| 1 | 1000 | 2 | false | Pickup | City | 1000 x 1.00 x 0.80 x 1.00 | 800.00 |
-| 2 | 1000 | 5 | false | Courier | City | 1000 x 1.10 x 1.00 x 1.00 | 1100.00 |
-| 3 | 1000 | 8 | false | DoorToDoor | OutsideCity | 1000 x 1.20 x 1.15 x 1.25 | 1725.00 |
-| 4 | 1000 | 3 | true | Courier | OutsideCity | 1000 x 1.00 x 1.00 x 1.25 x 1.30 | 1625.00 |
-| 5 | 1000 | 10 | true | DoorToDoor | Remote | 1000 x 1.20 x 1.15 x 1.50 x 1.30 | 2691.00 |
-| 6 | 0 | 5 | false | Courier | City | zero price stays zero | 0.00 |
-
-Test 6 shows that a price of zero is allowed. It is not an error.
+| # | Price | Age | Student | Ticket | Day | Calculation | Expected | Actual |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 5000 | 5 | false | Standard | Weekday | 5000 x 0.00 | 0.00 | 0.00 |
+| 2 | 5000 | 10 | false | Standard | Weekday | 5000 x 0.50 | 2500.00 | 2500.00 |
+| 3 | 5000 | 20 | true | Standard | Weekday | 5000 x 0.85 | 4250.00 | 4250.00 |
+| 4 | 5000 | 65 | false | Standard | Weekday | 5000 x 0.70 | 3500.00 | 3500.00 |
+| 5 | 5000 | 30 | false | Vip | Weekday | 5000 x 1.25 | 6250.00 | 6250.00 |
+| 6 | 5000 | 30 | false | Standard | Weekend | 5000 x 1.10 | 5500.00 | 5500.00 |
+| 7 | 5000 | 20 | true | Vip | Weekend | 5000 x 0.85 x 1.25 x 1.10 | 5843.75 | 5843.75 |
+| 8 | 0 | 30 | false | Standard | Weekday | zero price stays zero | 0.00 | 0.00 |
 
 ## Wrong input
 
 | # | What is entered | Result |
 |---|---|---|
-| 7 | price = `-100` | `Error: base price cannot be negative.` and the program stops |
-| 8 | price = empty line | `Error: base price must be a number.` and the program stops |
-| 9 | price = `abc` | `Error: base price must be a number.` and the program stops |
-| 10 | items = `two` | `Error: number of items must be a whole number.` and the program stops |
-| 11 | items = `0` | `Error: number of items must be 1 or more.` and the program stops |
-| 12 | express = `maybe` | `Error: express delivery must be true or false.` and the program stops |
-| 13 | type = `Drone` | `Error: delivery type must be Pickup, Courier or DoorToDoor.` |
-| 14 | zone = `Space` | `Error: delivery zone must be City, OutsideCity or Remote.` |
+| 9 | price = `-100` | `Error: base price cannot be negative.` |
+| 10 | price = empty line | `Error: base price is missing.` |
+| 11 | price = null (Ctrl+Z / end of input) | `Error: base price is missing.` |
+| 12 | age = `abc` | `Error: age must be a whole number.` |
+| 13 | student = `maybe` | `Error: student status must be true or false.` |
+| 14 | ticket = `Gold` | `Error: ticket type must be Standard or Vip.` |
+| 15 | day = `Holiday` | `Error: day type must be Weekday or Weekend.` |
 
 In every wrong case the program stops before the calculation and does not
 throw an exception.

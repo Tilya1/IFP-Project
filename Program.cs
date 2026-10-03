@@ -1,30 +1,34 @@
 using System;
 
-namespace FunctionalDeliveryCalculator
+namespace FunctionalTicketCalculator
 {
-    enum DeliveryType
+    enum TicketType
     {
-        Pickup,
-        Courier,
-        DoorToDoor
+        Standard,
+        Vip
     }
 
-    enum DeliveryZone
+    enum DayType
     {
-        City,
-        OutsideCity,
-        Remote
+        Weekday,
+        Weekend
     }
 
     class Program
     {
         static void Main()
         {
-            Console.WriteLine("Delivery Cost Calculator");
+            Console.WriteLine("Ticket Price Calculator");
             Console.WriteLine();
 
-            Console.Write("Base delivery price: ");
+            // 1. Base price
+            Console.Write("Base price: ");
             string priceText = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(priceText))
+            {
+                Console.WriteLine("Error: base price is missing.");
+                return;
+            }
             decimal basePrice;
             if (!decimal.TryParse(priceText, out basePrice))
             {
@@ -37,121 +41,136 @@ namespace FunctionalDeliveryCalculator
                 return;
             }
 
-            Console.Write("Number of items: ");
-            string itemsText = Console.ReadLine();
-            int itemCount;
-            if (!int.TryParse(itemsText, out itemCount))
+            // 2. Age
+            Console.Write("Age: ");
+            string ageText = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(ageText))
             {
-                Console.WriteLine("Error: number of items must be a whole number.");
+                Console.WriteLine("Error: age is missing.");
                 return;
             }
-            if (itemCount < 1)
+            int age;
+            if (!int.TryParse(ageText, out age))
             {
-                Console.WriteLine("Error: number of items must be 1 or more.");
+                Console.WriteLine("Error: age must be a whole number.");
                 return;
             }
-
-            Console.Write("Express delivery (true/false): ");
-            string expressText = Console.ReadLine();
-            bool isExpress;
-            if (!bool.TryParse(expressText, out isExpress))
+            if (age < 0)
             {
-                Console.WriteLine("Error: express delivery must be true or false.");
+                Console.WriteLine("Error: age cannot be negative.");
                 return;
             }
 
-            Console.Write("Delivery type (Pickup/Courier/DoorToDoor): ");
-            string typeText = Console.ReadLine();
-            DeliveryType deliveryType;
-            if (!Enum.TryParse<DeliveryType>(typeText, true, out deliveryType))
+            // 3. Student
+            Console.Write("Student (true/false): ");
+            string studentText = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(studentText))
             {
-                Console.WriteLine("Error: delivery type must be Pickup, Courier or DoorToDoor.");
+                Console.WriteLine("Error: student status is missing.");
+                return;
+            }
+            bool isStudent;
+            if (!bool.TryParse(studentText, out isStudent))
+            {
+                Console.WriteLine("Error: student status must be true or false.");
                 return;
             }
 
-            Console.Write("Delivery zone (City/OutsideCity/Remote): ");
-            string zoneText = Console.ReadLine();
-            DeliveryZone deliveryZone;
-            if (!Enum.TryParse<DeliveryZone>(zoneText, true, out deliveryZone))
+            // 4. Ticket type
+            Console.Write("Ticket type (Standard/Vip): ");
+            string ticketText = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(ticketText))
             {
-                Console.WriteLine("Error: delivery zone must be City, OutsideCity or Remote.");
+                Console.WriteLine("Error: ticket type is missing.");
+                return;
+            }
+            TicketType ticketType;
+            if (!Enum.TryParse<TicketType>(ticketText, true, out ticketType)
+                || !Enum.IsDefined(typeof(TicketType), ticketType))
+            {
+                Console.WriteLine("Error: ticket type must be Standard or Vip.");
                 return;
             }
 
-            decimal finalPrice = CalculateFinalPrice(
-                basePrice,
-                itemCount,
-                deliveryType,
-                deliveryZone,
-                isExpress);
+            // 5. Day type
+            Console.Write("Day type (Weekday/Weekend): ");
+            string dayText = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(dayText))
+            {
+                Console.WriteLine("Error: day type is missing.");
+                return;
+            }
+            DayType dayType;
+            if (!Enum.TryParse<DayType>(dayText, true, out dayType)
+                || !Enum.IsDefined(typeof(DayType), dayType))
+            {
+                Console.WriteLine("Error: day type must be Weekday or Weekend.");
+                return;
+            }
+
+            decimal finalPrice = CalculateFinalPrice(basePrice, age, isStudent, ticketType, dayType);
 
             Console.WriteLine();
             Console.WriteLine("Final price: " + finalPrice.ToString("F2"));
         }
 
+        // Higher-order function: it receives another function (rule) and applies it to the price.
         static decimal ApplyRule(decimal price, Func<decimal, decimal> rule) => rule(price);
 
-        static decimal GetItemsFactor(int itemCount)
+        // Customer discount. The first rule that matches is used.
+        static decimal GetCustomerFactor(int age, bool isStudent)
         {
-            if (itemCount >= 8)
+            if (age < 6)
             {
-                return 1.20m;
+                return 0.00m;
             }
-            if (itemCount >= 4)
+            else if (age <= 12)
             {
-                return 1.10m;
+                return 0.50m;
             }
-            return 1.00m;
-        }
-
-        static decimal GetTypeFactor(DeliveryType type)
-        {
-            switch (type)
+            else if (isStudent)
             {
-                case DeliveryType.Pickup:
-                    return 0.80m;
-                case DeliveryType.Courier:
-                    return 1.00m;
-                case DeliveryType.DoorToDoor:
-                    return 1.15m;
-                default:
-                    return 1.00m;
+                return 0.85m;
+            }
+            else if (age >= 60)
+            {
+                return 0.70m;
+            }
+            else
+            {
+                return 1.00m;
             }
         }
 
-        static decimal GetZoneFactor(DeliveryZone zone)
+        static decimal GetTicketFactor(TicketType ticketType)
         {
-            switch (zone)
+            switch (ticketType)
             {
-                case DeliveryZone.City:
-                    return 1.00m;
-                case DeliveryZone.OutsideCity:
+                case TicketType.Vip:
                     return 1.25m;
-                case DeliveryZone.Remote:
-                    return 1.50m;
                 default:
                     return 1.00m;
             }
         }
 
-        static decimal CalculateFinalPrice(
-            decimal basePrice,
-            int itemCount,
-            DeliveryType type,
-            DeliveryZone zone,
-            bool isExpress)
+        static decimal GetDayFactor(DayType dayType) => dayType == DayType.Weekend ? 1.10m : 1.00m;
+
+        static decimal CalculateFinalPrice(decimal basePrice, int age, bool isStudent, TicketType ticketType, DayType dayType)
         {
-            Func<decimal, decimal> itemsRule = price => price * GetItemsFactor(itemCount);
-            Func<decimal, decimal> expressRule = price => isExpress ? price * 1.30m : price;
+            Func<decimal, decimal> customerRule = price => price * GetCustomerFactor(age, isStudent);
+            Func<decimal, decimal> ticketRule = price => price * GetTicketFactor(ticketType);
+            Func<decimal, decimal> dayRule = price => price * GetDayFactor(dayType);
 
-            decimal result = basePrice;
+            decimal afterCustomer = ApplyRule(basePrice, customerRule);
+            decimal afterTicket = ApplyRule(afterCustomer, ticketRule);
+            decimal afterDay = ApplyRule(afterTicket, dayRule);
 
-            result = ApplyRule(result, itemsRule);
-            result = ApplyRule(result, price => price * GetTypeFactor(type));
-            result = ApplyRule(result, price => price * GetZoneFactor(zone));
-            result = ApplyRule(result, expressRule);
+            if (afterDay < 0)
+            {
+                afterDay = 0;
+            }
 
-            return Math.Round(result, 2);
+            return Math.Round(afterDay, 2);
         }
     }
 }
