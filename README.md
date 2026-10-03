@@ -1,74 +1,76 @@
-# FunctionalTicketCalculator
+# Assignment 2 – Telecom Call Processing
 
-A console program that calculates the final ticket price.
-
-## How to run
+## How to build, run and test
 
 ```
-dotnet run
+dotnet build
+dotnet run --project CallProcessing
+dotnet test
 ```
 
-The program asks five questions, one by one:
+## Structure
 
-1. Base price (a number, for example `5000`)
-2. Age (a whole number, 0 or more)
-3. Student (`true` or `false`)
-4. Ticket type (`Standard` or `Vip`)
-5. Day type (`Weekday` or `Weekend`)
+- `CallProcessing/CallRecord.cs` – `readonly record struct` with validation in the constructor.
+- `CallProcessing/CallPricing.cs` – `CalculateCost`, one switch expression with all tariffs.
+- `CallProcessing/CallProcessor.cs` – `ProcessCallsSequential` and `ProcessCallsParallel` (two threads).
+- `CallProcessing/Program.cs` – small console demo.
+- `CallProcessing.Tests/CallTests.cs` – xUnit tests (groups A, B, C).
 
-If the input is wrong or empty, the program prints an error message and stops.
+## Tariffs (order matters, first match wins)
 
-## Pricing rules
+1. Invalid record / NaN / out of range -> `ArgumentException`
+2. Roaming + KZ + duration < 1.0 -> 50.00 flat
+3. Non-roaming + KZ -> 15.00 per minute
+4. Roaming + duration >= 10.0 -> 120.00 per minute
+5. Everything else -> 45.00 per minute (fallback)
 
-1. Customer discount (the first rule that matches is used):
-   - age < 6 -> free (x 0.00)
-   - age 6-12 -> 50% discount (x 0.50)
-   - student -> 15% discount (x 0.85)
-   - age 60 or more -> 30% discount (x 0.70)
-   - others -> no discount (x 1.00)
-2. Ticket type: Vip x 1.25, Standard x 1.00
-3. Day type: Weekend x 1.10, Weekday x 1.00
-4. The price cannot be negative and is rounded to two decimal places.
+Each cost is rounded to 2 decimals with `MidpointRounding.AwayFromZero`.
 
-## Functions in the program
+## Pure and impure parts
 
-- `Main` - reads input, checks it with `TryParse`, prints the result.
-- `ApplyRule` - higher-order function. It receives a price and a
-  `Func<decimal, decimal>` rule and returns `rule(price)`.
-- `GetCustomerFactor` - returns the customer discount factor (if / else if).
-- `GetTicketFactor` - returns the ticket factor (switch).
-- `GetDayFactor` - expression-bodied function with `? :`.
-- `CalculateFinalPrice` - creates three `Func<decimal, decimal>` values
-  with lambdas (`customerRule`, `ticketRule`, `dayRule`) and applies them
-  one by one with `ApplyRule`. Every step returns a new value.
+- **Pure:** `CalculateCost`. It uses only its parameter, returns a value, does not use
+  Console, global variables or change any state. Same input -> same output.
+- **Impure:**
+  - `ProcessCallsParallel` creates threads and writes into its own output arrays.
+  - `Program.Main` writes to the Console.
+- `ProcessCallsSequential` only adds numbers into a local variable; it is the correctness baseline.
 
-## Answers to the questions
+## Why readonly does not mean valid
 
-**1. Which parts of the program are imperative?**
+`readonly record struct` only means the fields cannot change after creation.
+`default(CallRecord)` skips the constructor, so its `RecordId` and `DestinationCountry`
+are `null`. That is why `CalculateCost` checks the record again before pricing.
 
-The `Main` method. It runs step by step: ask a question, read the line,
-check it, and `return` early if it is wrong. Then it calls the calculation
-and prints the result.
+## Task 3 – the race
 
-**2. Which functions are pure?**
+`globalCallCounter++` is three steps: read, add 1, write. Possible lost update:
 
-`ApplyRule`, `GetCustomerFactor`, `GetTicketFactor`, `GetDayFactor` and
-`CalculateFinalPrice`. They only use their parameters, always return the
-same result for the same input, do not use `Console` and do not change
-any global variables.
+1. Thread A reads 5.
+2. Thread B reads 5.
+3. Thread A writes 6.
+4. Thread B writes 6.
 
-**3. Where do side effects remain?**
+Two calls were processed, but the counter grew only by 1. One update is lost.
+A sequential loop has no race, because only one thread changes the variable.
 
-Only in `Main`: `Console.ReadLine` (reading input) and `Console.Write` /
-`Console.WriteLine` (printing). Everything else has no side effects.
+## Partitioning
 
-**4. Why is TryParse preferred to Parse for user input?**
+The array is split with `[..mid]` and `[mid..]`. Each thread has its own input part and its
+own `decimal[]` output array, so the threads never write to the same memory. No `lock` is needed.
+`Join()` waits until both threads finish, so reading the arrays after `Join()` is safe.
+If a worker throws, the error is saved, both threads are joined, and the error is thrown again on
+the calling thread. No partial total is returned.
 
-The user can type anything: letters, an empty line, or a wrong word.
-`Parse` throws an exception and the program crashes. `TryParse` just
-returns `false`, so the program can show a clear error message and stop
-normally.
+## Test results
 
-## Test cases
+24 tests, all passed:
 
-See `TESTCASES.md`.
+- Group A – 6 tariff cases.
+- Group B – constructor validation, `default(CallRecord)`, zero minutes, boundaries 0.999/1.0 and 9.999/10.0.
+- Group C – 1000 records, parallel run 100 times equals sequential, input unchanged, empty, odd and null arrays.
+
+## Limitations
+
+- Parallel processing needs an even-length array.
+- For small arrays two threads are not faster than a simple loop (creating threads costs time).
+- Passing tests are evidence, not a proof, that there is no race.
