@@ -1,0 +1,44 @@
+using System.Globalization;
+
+namespace QuoteApp;
+
+public static class QuoteService
+{
+    public static Result<string> Create(
+        Catalog catalog, QuoteRequest request, Func<decimal, int, int, Result<decimal>> calculateTotal) =>
+        FindItem(catalog, request.ItemId)
+            .Bind(item => ValidateQuantity(item, request.Quantity))
+            .Bind(item => CheckStock(item, request.Quantity))
+            .Bind(item => BuildQuote(item, request, calculateTotal))
+            .Map(quote => Format(quote));
+
+    private static Result<Item> FindItem(Catalog catalog, string id) =>
+        catalog.Find(id).ToResult(Errors.ItemNotFound(id));
+
+    private static Result<Item> ValidateQuantity(Item item, int quantity) =>
+        quantity >= 1
+            ? Result<Item>.Ok(item)
+            : Result<Item>.Fail(Errors.InvalidQuantity(item.Name, quantity));
+
+    private static Result<Item> CheckStock(Item item, int quantity) =>
+        item.Stock >= quantity
+            ? Result<Item>.Ok(item)
+            : Result<Item>.Fail(Errors.OutOfStock(item.Name, quantity, item.Stock));
+
+    private static Result<Quote> BuildQuote(
+        Item item, QuoteRequest request, Func<decimal, int, int, Result<decimal>> calculateTotal)
+    {
+        var discount = DiscountFor(request.Coupon);
+        return calculateTotal(item.Price, request.Quantity, discount)
+            .Map(total => new Quote(item.Name, request.Quantity, discount, total));
+    }
+
+    private static int DiscountFor(string coupon) =>
+        string.IsNullOrWhiteSpace(coupon)
+            ? 0
+            : Coupons.Find(coupon).Match(percent => percent, () => 0);
+
+    private static string Format(Quote quote) =>
+        $"{quote.Quantity} x {quote.ItemName}, discount {quote.DiscountPercent}%, " +
+        $"total {quote.Total.ToString("F2", CultureInfo.InvariantCulture)}";
+}
